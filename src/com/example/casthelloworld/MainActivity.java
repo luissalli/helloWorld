@@ -78,7 +78,7 @@ public class MainActivity extends ActionBarActivity {
 
         ActionBar actionBar = getSupportActionBar();
         actionBar.setBackgroundDrawable(new ColorDrawable(
-                android.R.color.transparent));
+                getResources().getColor(android.R.color.transparent)));
 
         // When the user clicks on the button, use Android voice recognition to
         // get text
@@ -93,9 +93,8 @@ public class MainActivity extends ActionBarActivity {
         // Configure Cast device discovery
         mMediaRouter = MediaRouter.getInstance(getApplicationContext());
         mMediaRouteSelector = new MediaRouteSelector.Builder()
-                .addControlCategory(
-                        CastMediaControlIntent.categoryForCast(getResources()
-                                .getString(R.string.app_id))).build();
+                .addControlCategory(CastMediaControlIntent.categoryForCast(getResources()
+                        .getString(R.string.app_id))).build();
         mMediaRouterCallback = new MyMediaRouterCallback();
     }
 
@@ -106,8 +105,7 @@ public class MainActivity extends ActionBarActivity {
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_PROMPT,
-                getString(R.string.message_to_cast));
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, getString(R.string.message_to_cast));
         startActivityForResult(intent, REQUEST_CODE);
     }
 
@@ -120,8 +118,8 @@ public class MainActivity extends ActionBarActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_CODE && resultCode == RESULT_OK) {
-            ArrayList<String> matches = data
-                    .getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+            ArrayList<String> matches = data.getStringArrayListExtra(
+                    RecognizerIntent.EXTRA_RESULTS);
             if (matches.size() > 0) {
                 Log.d(TAG, matches.get(0));
                 sendMessage(matches.get(0));
@@ -147,7 +145,8 @@ public class MainActivity extends ActionBarActivity {
 
     @Override
     public void onDestroy() {
-        teardown();
+        Log.d(TAG, "onDestroy");
+        teardown(true);
         super.onDestroy();
     }
 
@@ -181,7 +180,7 @@ public class MainActivity extends ActionBarActivity {
         @Override
         public void onRouteUnselected(MediaRouter router, RouteInfo info) {
             Log.d(TAG, "onRouteUnselected: info=" + info);
-            teardown();
+            teardown(false);
             mSelectedDevice = null;
         }
     }
@@ -196,7 +195,7 @@ public class MainActivity extends ActionBarActivity {
                 @Override
                 public void onApplicationDisconnected(int errorCode) {
                     Log.d(TAG, "application has stopped");
-                    teardown();
+                    teardown(true);
                 }
 
             };
@@ -239,10 +238,9 @@ public class MainActivity extends ActionBarActivity {
 
                     // Check if the receiver app is still running
                     if ((connectionHint != null)
-                            && connectionHint
-                            .getBoolean(Cast.EXTRA_APP_NO_LONGER_RUNNING)) {
+                            && connectionHint.getBoolean(Cast.EXTRA_APP_NO_LONGER_RUNNING)) {
                         Log.d(TAG, "App  is no longer running");
-                        teardown();
+                        teardown(true);
                     } else {
                         // Re-create the custom message channel
                         try {
@@ -256,9 +254,7 @@ public class MainActivity extends ActionBarActivity {
                     }
                 } else {
                     // Launch the receiver app
-                    Cast.CastApi
-                            .launchApplication(mApiClient,
-                                    getString(R.string.app_id), false)
+                    Cast.CastApi.launchApplication(mApiClient, getString(R.string.app_id), false)
                             .setResultCallback(
                                     new ResultCallback<Cast.ApplicationConnectionResult>() {
                                         @Override
@@ -266,42 +262,32 @@ public class MainActivity extends ActionBarActivity {
                                                 ApplicationConnectionResult result) {
                                             Status status = result.getStatus();
                                             Log.d(TAG,
-                                                    "ApplicationConnectionResultCallback.onResult: statusCode"
+                                                    "ApplicationConnectionResultCallback.onResult:"
                                                             + status.getStatusCode());
                                             if (status.isSuccess()) {
                                                 ApplicationMetadata applicationMetadata = result
                                                         .getApplicationMetadata();
-                                                mSessionId = result
-                                                        .getSessionId();
+                                                mSessionId = result.getSessionId();
                                                 String applicationStatus = result
                                                         .getApplicationStatus();
-                                                boolean wasLaunched = result
-                                                        .getWasLaunched();
-                                                Log.d(TAG,
-                                                        "application name: "
-                                                                + applicationMetadata
-                                                                .getName()
-                                                                + ", status: "
-                                                                + applicationStatus
-                                                                + ", sessionId: "
-                                                                + mSessionId
-                                                                + ", wasLaunched: "
-                                                                + wasLaunched);
+                                                boolean wasLaunched = result.getWasLaunched();
+                                                Log.d(TAG, "application name: "
+                                                        + applicationMetadata.getName()
+                                                        + ", status: " + applicationStatus
+                                                        + ", sessionId: " + mSessionId
+                                                        + ", wasLaunched: " + wasLaunched);
                                                 mApplicationStarted = true;
 
                                                 // Create the custom message
                                                 // channel
                                                 mHelloWorldChannel = new HelloWorldChannel();
                                                 try {
-                                                    Cast.CastApi
-                                                            .setMessageReceivedCallbacks(
-                                                                    mApiClient,
-                                                                    mHelloWorldChannel
-                                                                            .getNamespace(),
-                                                                    mHelloWorldChannel);
+                                                    Cast.CastApi.setMessageReceivedCallbacks(
+                                                            mApiClient,
+                                                            mHelloWorldChannel.getNamespace(),
+                                                            mHelloWorldChannel);
                                                 } catch (IOException e) {
-                                                    Log.e(TAG,
-                                                            "Exception while creating channel",
+                                                    Log.e(TAG, "Exception while creating channel",
                                                             e);
                                                 }
 
@@ -309,9 +295,8 @@ public class MainActivity extends ActionBarActivity {
                                                 // on the receiver
                                                 sendMessage(getString(R.string.instructions));
                                             } else {
-                                                Log.e(TAG,
-                                                        "application could not launch");
-                                                teardown();
+                                                Log.e(TAG, "application could not launch");
+                                                teardown(true);
                                             }
                                         }
                                     });
@@ -338,14 +323,14 @@ public class MainActivity extends ActionBarActivity {
         public void onConnectionFailed(ConnectionResult result) {
             Log.e(TAG, "onConnectionFailed ");
 
-            teardown();
+            teardown(false);
         }
     }
 
     /**
      * Tear down the connection to the receiver
      */
-    private void teardown() {
+    private void teardown(boolean selectDefaultRoute) {
         Log.d(TAG, "teardown");
         if (mApiClient != null) {
             if (mApplicationStarted) {
@@ -367,6 +352,9 @@ public class MainActivity extends ActionBarActivity {
             }
             mApiClient = null;
         }
+        if (selectDefaultRoute) {
+            mMediaRouter.selectRoute(mMediaRouter.getDefaultRoute());
+        }
         mSelectedDevice = null;
         mWaitingForReconnect = false;
         mSessionId = null;
@@ -379,8 +367,8 @@ public class MainActivity extends ActionBarActivity {
         if (mApiClient != null && mHelloWorldChannel != null) {
             try {
                 Cast.CastApi.sendMessage(mApiClient,
-                        mHelloWorldChannel.getNamespace(), message)
-                        .setResultCallback(new ResultCallback<Status>() {
+                        mHelloWorldChannel.getNamespace(), message).setResultCallback(
+                        new ResultCallback<Status>() {
                             @Override
                             public void onResult(Status result) {
                                 if (!result.isSuccess()) {
@@ -392,8 +380,7 @@ public class MainActivity extends ActionBarActivity {
                 Log.e(TAG, "Exception while sending message", e);
             }
         } else {
-            Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT)
-                    .show();
+            Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
         }
     }
 
